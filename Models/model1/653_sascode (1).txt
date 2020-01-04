@@ -1,0 +1,66 @@
+ods rtf file = "ok_boomer.rtf"; 
+
+proc import datafile = "data_653.csv"
+out = exercise
+dbms = csv
+replace;
+guessingrows = 20;
+getnames = yes;
+run;
+;
+
+
+/*
+proc contents data = exercise;
+run;
+
+proc print data = exercise;
+run;
+*/
+
+proc means data = exercise NOPRINT;
+var Fatmass;
+output out = haha mean =waluigi std=boomer;
+run;
+*just manaually doing the means, it's too annoying in SAS to automate it;
+data exercise_d;
+set exercise;
+days = Time;
+if Time = 1 then days = 0;
+if Time = 2 then days = 93;
+if Time = 3 then days = 96;
+Fatmass_cent = Fatmass - 40.68;
+run;
+
+title 'Unstructured';
+proc mixed data = exercise_d method=reml;
+class ID Group;
+model GIRperkgFFMperinsulin =  Sex Group*days Fatmass_cent LogTotalAdiponectin/noint solution;
+random intercept days/type = un subject = ID g gcorr v vcorr;
+repeated/type = un  subject = ID r rcorr;
+run;
+
+title 'rand unstrucutred, main ARH(1)';
+*doesn't converge for this model;
+proc mixed data = exercise_d method=reml;
+class ID Group;
+model GIRperkgFFMperinsulin =  Sex Group*days Fatmass_cent LogTotalAdiponectin/noint solution;
+random intercept days/type = un subject = ID g gcorr v vcorr;
+repeated/type = ARH(1)  subject = ID r rcorr;
+run;
+
+title 'rand unstrucutred, main ANTE(1)';
+proc mixed data = exercise_d method=reml;
+class ID Group;)
+model GIRperkgFFMperinsulin =  Sex Group*days Fatmass_cent LogTotalAdiponectinn / noint solution;
+random intercept days/type = un subject = ID g gcorr v vcorr;
+repeated/type = ANTE(1)  subject = ID r rcorr;
+run;
+
+title 'rand unstrucutred, main csh';
+proc mixed data = exercise_d method=reml;
+class ID Group;
+model GIRperkgFFMperinsulin =  Sex Group*days Fatmass_cent LogTotalAdiponectin/noint solution;
+random intercept days/type = un subject = ID g gcorr v vcorr;
+repeated/type = csh  subject = ID r rcorr;
+run;

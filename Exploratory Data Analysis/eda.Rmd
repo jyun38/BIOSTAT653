@@ -1,0 +1,207 @@
+---
+title: "EDA, 653 Applied Longitudinal Data Analysis"
+author: 
+    - "Term Project; Parametric Modeling of the Mean Curves; Covariance Models"
+date: '`r Sys.Date()`'
+---
+```{r setup, include=FALSE}
+library(tufte)
+# invalidate cache when the tufte version changes
+knitr::opts_chunk$set(tidy = FALSE, cache.extra = packageVersion('tufte'))
+options(htmltools.dir.version = FALSE)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+library(knitr)
+opts_chunk$set(collapse=TRUE, fig.align='center', tidy=TRUE, tidy.opts=list(blank=TRUE, width.cutoff=40), warning=FALSE,message=FALSE)
+
+rm(list=ls())
+
+library(tidyverse)
+library(reshape2)
+library(foreign)
+```
+
+
+```{r}
+df<- read.csv("G:/My Drive/BIOS 653/hw03/data_project.csv",
+              header = TRUE, 
+              sep = ',', 
+              stringsAsFactors = TRUE)
+colnames(df)[1] <- "Sex" 
+df <- df[order(df$ID),]
+
+df$Days[df$Time == 1] <- 0
+df$Days[df$Time == 2] <- 93
+df$Days[df$Time == 3] <- 96
+head(df, 15)
+
+```
+
+```{r}
+cor(x = df$Fatmass, y = df$FFM)
+plot(x = df$Fatmass, y = df$FFM)
+model_fat<-lm(FFM ~ Fatmass, data = df)
+summary(model_fat)
+
+covariates <- data.frame(sex=df$Sex, exerc_group=df$Group, time= df$Time, fatmass= df$Fatmass, FFM= df$FFM, musclehsl= df$MuscleHSL)
+
+head(covariates)
+library(psych)
+covariates_plot <- pairs.panels(covariates)
+```
+
+```{r}
+MICT_0_avg <- mean(df$GIRperkgFFMperinsulin[which(df$Days==0 & df$Group==0)])
+MICT_0_sd <- sd(df$GIRperkgFFMperinsulin[which(df$Days==0 & df$Group==0)])
+
+HIIT_0_avg <- mean(df$GIRperkgFFMperinsulin[which(df$Days==0 & df$Group==1)])
+HIIT_0_sd <- sd(df$GIRperkgFFMperinsulin[which(df$Days==0 & df$Group==1)])
+
+MICT_93_avg <- mean(df$GIRperkgFFMperinsulin[which(df$Days==93 & df$Group==0)])
+MICT_93_sd <- sd(df$GIRperkgFFMperinsulin[which(df$Days==93 & df$Group==0)])
+
+HIIT_93_avg <- mean(df$GIRperkgFFMperinsulin[which(df$Days==93 & df$Group==1)], na.rm = T)
+HIIT_93_sd <- sd(df$GIRperkgFFMperinsulin[which(df$Days==93 & df$Group==1)], na.rm=T)
+
+MICT_96_avg <- mean(df$GIRperkgFFMperinsulin[which(df$Days==96 & df$Group==0)])
+MICT_96_sd <- sd(df$GIRperkgFFMperinsulin[which(df$Days==96 & df$Group==0)])
+
+HIIT_96_avg <- mean(df$GIRperkgFFMperinsulin[which(df$Days==96 & df$Group==1)], na.rm = T)
+HIIT_96_sd <- sd(df$GIRperkgFFMperinsulin[which(df$Days==96 & df$Group==1)], na.rm=T)
+
+MICT_0<-cbind(MICT_0_avg, MICT_0_sd)
+MICT_93<-cbind(MICT_93_avg, MICT_93_sd)
+MICT_96 <-cbind(MICT_96_avg, MICT_96_sd)
+
+HIIT_0 <- cbind(HIIT_0_avg, HIIT_0_sd)
+HIIT_93 <- cbind(HIIT_93_avg, HIIT_93_sd)
+HIIT_96 <- cbind(HIIT_96_avg, HIIT_96_sd)
+
+MICT<-rbind(MICT_0, MICT_93, MICT_96)
+HIIT<-rbind(HIIT_0, HIIT_93, HIIT_96)
+
+by_trt<-data.frame(MICT=MICT, HIIT=HIIT)
+colnames(by_trt)<-c("mean for MICT", "sd for MICT", "mean for HIIT", "sd for HIIT")
+row.names(by_trt) <- c("baseline", "93 days", "96 days")
+print(by_trt)
+```
+
+
+```{r}
+F_0_avg <- mean(df$GIRperkgFFMperinsulin[which(df$Days==0 & df$Sex==0)])
+F_0_sd <- sd(df$GIRperkgFFMperinsulin[which(df$Days==0 & df$Sex==0)])
+
+M_0_avg <- mean(df$GIRperkgFFMperinsulin[which(df$Days==0 & df$Sex==1)])
+M_0_sd <- sd(df$GIRperkgFFMperinsulin[which(df$Days==0 & df$Sex==1)])
+
+F_93_avg <- mean(df$GIRperkgFFMperinsulin[which(df$Days==93 & df$Sex==0)], na.rm = T)
+F_93_sd <- sd(df$GIRperkgFFMperinsulin[which(df$Days==93 & df$Sex==0)], na.rm = T)
+
+M_93_avg <- mean(df$GIRperkgFFMperinsulin[which(df$Days==93 & df$Sex==1)], na.rm = T)
+M_93_sd <- sd(df$GIRperkgFFMperinsulin[which(df$Days==93 & df$Sex==1)], na.rm=T)
+
+F_96_avg <- mean(df$GIRperkgFFMperinsulin[which(df$Days==96 & df$Sex==0)])
+F_96_sd <- sd(df$GIRperkgFFMperinsulin[which(df$Days==96 & df$Sex==0)])
+
+M_96_avg <- mean(df$GIRperkgFFMperinsulin[which(df$Days==96 & df$Sex==1)], na.rm = T)
+M_96_sd <- sd(df$GIRperkgFFMperinsulin[which(df$Days==96 & df$Sex==1)], na.rm=T)
+
+F_0<-cbind(F_0_avg, F_0_sd)
+F_93<-cbind(F_93_avg, F_93_sd)
+F_96 <-cbind(F_96_avg, F_96_sd)
+
+M_0 <- cbind(M_0_avg, M_0_sd)
+M_93 <- cbind(M_93_avg, M_93_sd)
+M_96 <- cbind(M_96_avg, M_96_sd)
+
+F<-rbind(F_0, F_93, F_96)
+M<-rbind(M_0, M_93, M_96)
+
+by_trt<-data.frame(F=F, M=M)
+colnames(by_trt)<-c("mean for F", "sd for F", "mean for M", "sd for M")
+row.names(by_trt) <- c("baseline", "93 days", "96 days")
+print(by_trt)
+```
+
+
+```{r}
+
+par(mfrow=c(3,3))
+hist(x = df$GIRperkgFFMperinsulin[which(df$Days==0)], 
+     main = "Histogram for Glucose \nInsulin Resistance at Baseline", 
+     xlab= "GIR per kg FFM per insulin")
+
+hist(x = df$GIRperkgFFMperinsulin[which(df$Days==0 & df$Group==0)], 
+     xlab = "GIR per kg FFM per insulin", 
+     main = "Histogram for Glucose \nInsulin Resistance at Baseline for MICT")
+
+hist(x = df$GIRperkgFFMperinsulin[which(df$Days==0 & df$Group==1)], 
+     xlab = "GIR per kg FFM per insulin", 
+     main = "Histogram for Glucose \nInsulin Resistance at Baseline for HITT", 
+     ylim = c(0, 6))
+
+hist(x = df$GIRperkgFFMperinsulin[which(df$Days==93)], 
+     main = "Histogram for Glucose \nInsulin Resistance at Visit 2", 
+     xlab= "GIR per kg FFM per insulin")
+
+hist(x = df$GIRperkgFFMperinsulin[which(df$Days==96)], 
+     main = "Histogram for Glucose \nInsulin Resistance at Visit 3", 
+     xlab= "GIR per kg FFM per insulin")
+
+hist(x = df$GIRperkgFFMperinsulin[which(df$Days==96 & df$Group==0)], 
+     main="Histogram for Glucose \nInsulin Resistance at Visit 3 for MICT", 
+     xlab= "GIR per kg FFM per insulin")
+
+hist(x = df$GIRperkgFFMperinsulin[which(df$Days==96 & df$Group==1)], 
+     main="Histogram for Glucose \nInsulin Resistance at Visit 3 for HIIT",
+     xlab= "GIR per kg FFM per insulin")
+```
+
+```{r}
+rm(Visit0)
+rm(Visit1)
+rm(Visit2)
+Visit1<-df$GIRperkgFFMperinsulin[which(df$Days==0)]
+Visit2<-df$GIRperkgFFMperinsulin[which(df$Days==93)]
+Visit3<-df$GIRperkgFFMperinsulin[which(df$Days==96)]
+visits<-data.frame(Visit1, Visit2, Visit3)
+pairs.panels(visits, main="Correlations Between Repeated Insulin Resistance Measurements")
+```
+
+The response is: GIRperkgFFMperinsulin
+
+The variables names are:
+
+* GIRperkgFFMperinsulin
+* ID
+* Sex
+* Group (0 for moderate intensity, 1 for high intensity)
+* Days
+* 
+The covariates are:
+
+* Group
+* Sex
+* BMI
+* 
+
+4. For continous outcomes, use spaghetti plots to visualize 20 individuals' responses over time; For non-continuous outcomes, plot 10 individuals' responses over time in 10 separate panels.
+
+```{r}
+df.spaghetti <- na.omit(df)
+df.spaghetti <- within(df.spaghetti, {
+  ID <- factor(ID) 
+  Group <- factor(Group, levels=0:1, labels = c("MICT", "HIIT"))})
+library(ggplot2)
+
+
+spaghetti <- ggplot(data = df.spaghetti, aes(x = Time, y = GIRperkgFFMperinsulin, group=ID))
+
+spaghetti + geom_line() + stat_smooth(aes(group=1), method = "gam") + facet_grid(.~ df.spaghetti$Group) + xlab("Time") + ylab("Glucose Infusion Rate per kg Fat Free Mass per insulin")
+
+```
+
+
+
+

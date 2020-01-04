@@ -1,0 +1,179 @@
+---
+title: "653 Applied Longitudinal Data Analysis"
+author: 
+    - "Term Project"
+date: '`r Sys.Date()`'
+---
+```{r setup, include=FALSE}
+library(tufte)
+# invalidate cache when the tufte version changes
+knitr::opts_chunk$set(tidy = FALSE, cache.extra = packageVersion('tufte'))
+options(htmltools.dir.version = FALSE)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+library(knitr)
+opts_chunk$set(collapse=TRUE, fig.align='center', tidy=TRUE, tidy.opts=list(blank=TRUE, width.cutoff=40), warning=FALSE,message=FALSE)
+
+rm(list=ls())
+
+library(tidyverse)
+library(reshape2)
+library(foreign)
+```
+
+I had to alter the original file to remove space for Muscle glycogen
+```{r}
+df1<- read.csv("G:/My Drive/BIOS 653/project/data_project.csv",
+              header = TRUE, 
+              sep = ',', 
+              stringsAsFactors = TRUE)
+colnames(df1)[1] <- "Sex" 
+df1 <- df1[order(df1$ID),]
+
+# Create a variable called Days, represent day of measurements
+df1$Days[df1$Time == 1] <- 0
+df1$Days[df1$Time == 2] <- 93
+df1$Days[df1$Time == 3] <- 96
+head(df1, 15)
+
+```
+
+This was in the proposal, just shows that we know there are correlations between repeated measures and some insights on a potential correlation sturcture.
+
+```{r}
+Visit1<-df1$GIRperkgFFMperinsulin[which(df1$Days==0)]
+Visit2<-df1$GIRperkgFFMperinsulin[which(df1$Days==93)]
+Visit3<-df1$GIRperkgFFMperinsulin[which(df1$Days==96)]
+visits<-data.frame(Visit1, Visit2, Visit3)
+pairs.panels(visits, main="Correlations Between Repeated Insulin Resistance Measurements")
+```
+
+
+Explore relationships between covariates and outcome
+
+* Check for multicollinearity between FFM and Fatmass - looks fine to include in model
+* Appears that FFM and Sex are correlated - should potentially drop one (probably FFM)
+* Should plot GIRperkgFFMperinsulin vs Fatmass, FFM, muscleglyc, and COVIX by themselves to get a clearer picture
+
+```{r}
+cor(x = df1$Fatmass, y = df1$FFM)
+plot(x = df1$Fatmass, y = df1$FFM)
+model_fat<-lm(FFM ~ Fatmass, data = df1)
+```
+
+
+```{r}
+data <- data.frame(ID=df1$ID, Sex=df1$Sex, Group=df1$Group, Days= df1$Days, Fatmass= df1$Fatmass, FFM= df1$FFM, Muscle.glycogen= df1$'Muscle.glycogen', COXIV = df1$COXIV, GIRperkgFFMperinsulin = df1$GIRperkgFFMperinsulin)
+
+head(data)
+library(psych)
+covariates_plot <- pairs.panels(data[,-c(1)])
+```
+
+
+
+```{r, message=F}
+#install.packages("lme4")
+#install.packages("arm")
+
+library(lme4)
+library(arm)
+```
+
+Data manipulation; could potentially look into imputing missing data.
+
+```{r}
+str(data)
+data$ID <- as.factor(data$ID) #ID should be treated as 'categorical'
+data <- data[-c(94:96),] # these rows are empty
+summary(data) 
+```
+
+Export the data to use in SAS or other programs.
+
+```{r}
+filepath <- "C:/Users/janes/Downloads/data_biostat653_project.csv"
+write.table(x = data, file = filepath)
+```
+
+This is a model for insulin sensitivity with Days as fixed effects, and intercept for each ID as random effect.
+
+```{r}
+mod0<-lmer(GIRperkgFFMperinsulin ~ Days + (1|ID), data)
+summary(mod0)
+display(mod0)
+confint(mod0)
+```
+
+This is a model for insulin sensitivity with Sex, Group*Days, Fatmass, FFM, and Muscle glycogen as fixed effects, with a random intercept for each individual and random slope for time. Note there was an issue with convergence.
+
+```{r}
+model.lmm<-lmer(GIRperkgFFMperinsulin~Sex+Group*Days+Fatmass+FFM+Muscle.glycogen + (Days|ID), data = data)
+summary(model.lmm)
+display(model.lmm)
+confint(model.lmm)
+```
+
+This is a model for insulin sensitivity with Sex, Group*Days, Fatmass, FFM, and Muscle glycogen as fixed effects, with a random intercept for each individual.
+
+```{r}
+model2.lmm<-lmer(GIRperkgFFMperinsulin~Sex+Group*Days+Fatmass+FFM+Muscle.glycogen + (1|ID), data = data)
+summary(model2.lmm)
+display(model2.lmm)
+confint(model2.lmm)
+```
+
+This is a model for insulin sensitvity with Sex, Group*Days, Fatmass, FFM, Muscle.glycogen, and Sex*Fatmass as fixed effects, with a random intercept for each individual.
+
+```{r}
+model3.lmm<-lmer(GIRperkgFFMperinsulin~Sex+Group*Days+Fatmass+FFM+Muscle.glycogen +Sex*Fatmass+ (1|ID), data = data)
+summary(model3.lmm)
+display(model3.lmm)
+confint(model3.lmm)
+```
+
+Model fit is not significantly different for these models; smallest AIC is model2.lmm
+
+```{r}
+anova(model.lmm, model2.lmm, model3.lmm)
+```
+
+
+Fitted vs. residual plots
+Suggest a little issue with more variability at larger fitted values
+
+```{r}
+plot(model2.lmm, type = c("p", "smooth"))
+```
+
+Quantile-Quantile plots
+Residuals are not quite normal.
+
+```{r}
+qqmath(model2.lmm, id=0.05)
+```
+
+Playing with more models
+
+```{r}
+mod1<-lmer(GIRperkgFFMperinsulin~ Sex + Group*Days+Fatmass+Muscle.glycogen + (1|ID), data = data)
+
+display(mod1)
+confint(mod1)
+anova(model2.lmm, mod1)
+```
+
+```{r}
+p <- ggplot(data = df, aes(x = COXIV, y =GIRperkgFFMperinsulin, group = ID))
+p + geom_line()
+```
+
+
+Some casual Random Forest Feature Selection
+```{r}
+library(Boruta)
+boruta_out<-Boruta(GIRperkgFFMperinsulin~., data=na.omit(df1), doTrace=2)
+names(boruta_out$finalDecision[boruta_out$finalDecision %in% c("Confirmed", "Tentative")])
+plot(boruta_out, cex.axis=.7, las=2, xlab="", main="Variable Importance")
+```
