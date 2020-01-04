@@ -24,7 +24,7 @@ library(foreign)
 
 I had to alter the original file to remove space for Muscle glycogen
 ```{r}
-df1<- read.csv("G:/My Drive/BIOS 653/project/data_project.csv",
+df1<- read.csv("~/Downloads/data_project.csv",
               header = TRUE, 
               sep = ',', 
               stringsAsFactors = TRUE)
@@ -33,20 +33,30 @@ df1 <- df1[order(df1$ID),]
 
 # Create a variable called Days, represent day of measurements
 df1$Days[df1$Time == 1] <- 0
-df1$Days[df1$Time == 2] <- 93
-df1$Days[df1$Time == 3] <- 96
+df1$Days[df1$Time == 2] <- 90
+df1$Days[df1$Time == 3] <- 93
 head(df1, 15)
-
+df1 <- df1[-c(94:96),]
 ```
 
 This was in the proposal, just shows that we know there are correlations between repeated measures and some insights on a potential correlation sturcture.
 
 ```{r}
 Visit1<-df1$GIRperkgFFMperinsulin[which(df1$Days==0)]
-Visit2<-df1$GIRperkgFFMperinsulin[which(df1$Days==93)]
-Visit3<-df1$GIRperkgFFMperinsulin[which(df1$Days==96)]
-visits<-data.frame(Visit1, Visit2, Visit3)
+Visit2<-df1$GIRperkgFFMperinsulin[which(df1$Days==90)]
+Visit3<-df1$GIRperkgFFMperinsulin[which(df1$Days==93)]
+visits<-data.frame(unique(df1$ID), Visit1, Visit2, Visit3)
+library(psych)
 pairs.panels(visits, main="Correlations Between Repeated Insulin Resistance Measurements")
+library(GGally)
+ggpairs(visits[2:4], 
+        axisLabels = "show", 
+        title = "Correlations Between Repeated Insulin Resistance Measurements",
+          lower=list(continuous=wrap("smooth")),
+        diag=list(continuous='density'), 
+        upper=list(continuous=wrap('cor', color="black", size=5))
+        ) + 
+  mytheme
 ```
 
 
@@ -64,11 +74,21 @@ model_fat<-lm(FFM ~ Fatmass, data = df1)
 
 
 ```{r}
-data <- data.frame(ID=df1$ID, Sex=df1$Sex, Group=df1$Group, Days= df1$Days, Fatmass= df1$Fatmass, FFM= df1$FFM, Muscle.glycogen= df1$'Muscle.glycogen', COXIV = df1$COXIV, GIRperkgFFMperinsulin = df1$GIRperkgFFMperinsulin)
+data <- data.frame(ID=df1$ID, Sex=df1$Sex, Group=df1$Group, Time =df1$Time, Days= df1$Days, Fatmass= df1$Fatmass, FFM= df1$FFM, Muscle.glycogen=df1$'Muscle.glycogen', COXIV = df1$COXIV, GIRperkgFFMperinsulin = df1$GIRperkgFFMperinsulin)
 
 head(data)
 library(psych)
 covariates_plot <- pairs.panels(data[,-c(1)])
+
+ggpairs(data[-c(1, 5, 7, 9)], 
+        axisLabels = "show")
+
+covariates_plot
+cormat <- cor(data[-c(1,2, 3, 4)], use="complete.obs")
+cormat2 <- melt(cormat)
+
+ggplot(data = cormat2, aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile()
 ```
 
 
@@ -147,17 +167,18 @@ Suggest a little issue with more variability at larger fitted values
 plot(model2.lmm, type = c("p", "smooth"))
 ```
 
-Quantile-Quantile plots
+ Quantile-Quantile plots
 Residuals are not quite normal.
 
 ```{r}
+library(lattice)
 qqmath(model2.lmm, id=0.05)
 ```
 
 Playing with more models
 
 ```{r}
-mod1<-lmer(GIRperkgFFMperinsulin~ Sex + Group*Days+Fatmass+Muscle.glycogen + (1|ID), data = data)
+mod1<-lmer(GIRperkgFFMperinsulin~ Sex + Group*Time+Fatmass+Muscle.glycogen + (1|ID)-1, data = data)
 
 display(mod1)
 confint(mod1)
@@ -165,7 +186,7 @@ anova(model2.lmm, mod1)
 ```
 
 ```{r}
-p <- ggplot(data = df, aes(x = COXIV, y =GIRperkgFFMperinsulin, group = ID))
+p <- ggplot(data = data, aes(x = COXIV, y =GIRperkgFFMperinsulin, group = ID))
 p + geom_line()
 ```
 
@@ -177,3 +198,76 @@ boruta_out<-Boruta(GIRperkgFFMperinsulin~., data=na.omit(df1), doTrace=2)
 names(boruta_out$finalDecision[boruta_out$finalDecision %in% c("Confirmed", "Tentative")])
 plot(boruta_out, cex.axis=.7, las=2, xlab="", main="Variable Importance")
 ```
+
+```{r, warning=FALSE}
+library(ggplot2)
+data$Sex <- as.factor(data$Sex)
+levels(data$Sex) <- c("F", "M")
+data$Group <- as.factor(data$Group)
+levels(data$Group) <- c("MICT", "HITT")
+
+mytheme <- theme_classic() + 
+  theme(axis.title = element_text(size=12),
+        strip.text.x = element_text(size = 13),
+        strip.text.y = element_text(size=13),
+        axis.text = element_text(size=12),
+        plot.title = element_text(size=13, hjust = 0.5, face = "bold"))
+
+ggplot(data, aes(x = Days, y = GIRperkgFFMperinsulin)) + 
+  geom_line(aes(group = factor(ID), color=ID)) +
+  geom_smooth(method="loess") +
+  facet_grid(. ~ Group) + 
+  scale_x_continuous(breaks = c(0, 90, 93)) + 
+  theme_classic() + 
+  theme(panel.grid.minor = element_blank(), 
+        axis.title = element_text(size=12),
+        strip.text.x = element_text(size = 13),
+        axis.text = element_text(size=12))
+
+ggplot(data, aes(x = Days, y = GIRperkgFFMperinsulin)) + 
+  geom_line(aes(group = factor(ID), color=ID)) +
+  geom_smooth(method="loess") +
+  facet_grid(. ~ Sex) + 
+  scale_x_continuous(breaks = c(0, 90, 93)) + 
+  theme_classic() + 
+  theme(axis.title = element_text(size=12),
+        strip.text.x = element_text(size = 13),
+        axis.text = element_text(size=12))
+
+```
+
+```{r}
+ggplot(data, aes(x=Fatmass, y=GIRperkgFFMperinsulin, color=Time)) + geom_point() + 
+  ggtitle('Insulin Sensitivity vs. Fatmass') + 
+  stat_ellipse() + 
+  mytheme
+
+ggplot(data, aes(x=Muscle.glycogen, y=GIRperkgFFMperinsulin, color=Time)) + 
+  geom_point() + 
+  ggtitle('Insulin Sensitivity vs. Muscle Glycogen') + 
+  stat_ellipse() + 
+  mytheme
+
+ggplot(data, aes(x=Sex, y=GIRperkgFFMperinsulin, color=Group)) + geom_boxplot() +
+  ggtitle('Insulin Sensitivity by Sex and Group') + mytheme 
+```
+
+```{r}
+##rate of change
+visits <- visits %>% 
+  mutate(v1_v2 = (Visit2-Visit1)/Visit1,
+         v2_v3 = (Visit3-Visit2)/Visit2)
+colnames(visits)[1] <- 'ID'
+
+sub <- visits %>% dplyr::select(ID, v1_v2, v2_v3)
+
+change <- melt(sub, id.vars ="ID") %>% arrange(ID)
+colnames(change) <- c('ID', 'range', 'roc')
+change <- change %>% 
+  mutate(roc_perc = roc*100)
+
+ggplot(change, aes(x=range, y=roc_perc, group=ID, color=ID)) + geom_point() + 
+  geom_line() +
+  geom_hline(yintercept = 0)
+```
+
